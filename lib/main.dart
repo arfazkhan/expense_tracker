@@ -168,7 +168,7 @@ class MyHomePageState extends State<MyHomePage> {
                     children: [
                       Container(
                         height: percentages[i],
-                        width: 40,
+                        width: 50,
                         decoration: const BoxDecoration(
                           borderRadius: BorderRadiusDirectional.all(Radius.elliptical(20, 20)),
                           gradient: LinearGradient(
