@@ -125,11 +125,33 @@ class MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  Widget _buildChart() {
+Widget _buildChart() {
   double totalExpense = transactions.fold(0, (sum, transaction) => sum + double.parse(transaction.price));
+
+  // Find the earliest and latest transaction dates
+  DateTime earliestDate = findEarliestDate();
+  DateTime latestDate = findLatestDate();
+
+  // Format dates
+  String startDateString = "${earliestDate.day}/${earliestDate.month}/${earliestDate.year}";
+  String endDateString = "${latestDate.day}/${latestDate.month}/${latestDate.year}";
+
+  // Find the day with the highest expense
+  String highestExpenseDay = findHighestExpenseDay();
 
   return Column(
     children: [
+      Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Text(
+          '$startDateString - $endDateString', // Display the date range
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Colors.blue, // Optionally, change the color to highlight
+          ),
+        ),
+      ),
       Padding(
         padding: const EdgeInsets.all(8.0),
         child: Row(
@@ -151,6 +173,17 @@ class MyHomePageState extends State<MyHomePage> {
               ),
             ),
           ],
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Text(
+          'Highest Expense: $highestExpenseDay', // Display the highest expense day
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.red, // Optionally, change the color to highlight
+          ),
         ),
       ),
       Card(
@@ -198,6 +231,44 @@ class MyHomePageState extends State<MyHomePage> {
     ],
   );
 }
+
+
+DateTime findEarliestDate() {
+  DateTime earliestDate = DateTime.now();
+
+  for (Transaction transaction in transactions) {
+    if (transaction.date.isBefore(earliestDate)) {
+      earliestDate = transaction.date;
+    }
+  }
+
+  return earliestDate;
+}
+
+DateTime findLatestDate() {
+  DateTime latestDate = DateTime.now();
+
+  for (Transaction transaction in transactions) {
+    if (transaction.date.isAfter(latestDate)) {
+      latestDate = transaction.date;
+    }
+  }
+
+  return latestDate;
+}
+  String findHighestExpenseDay() {
+    double highestExpense = 0;
+    String highestExpenseDay = "";
+
+    for (int i = 0; i < 7; i++) {
+      if (heights[i] > highestExpense) {
+        highestExpense = heights[i];
+        highestExpenseDay = weekdays[i];
+      }
+    }
+
+    return highestExpenseDay;
+  }
 
 
   Widget _buildTransactionsList() {
