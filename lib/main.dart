@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:expense_tracker/transaction.dart';
+import 'package:expense_tracker/database_manager.dart';
+import 'package:expense_tracker/transaction_model.dart';
 
 void main() => runApp(const MyApp());
 
@@ -23,6 +25,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class MyHomePageState extends State<MyHomePage> {
+  late List<TransactionModel> transactions;
   final List<String> weekdays = [
     "Mon",
     "Tue",
@@ -34,7 +37,6 @@ class MyHomePageState extends State<MyHomePage> {
   ];
   late List<double> heights;
   late List<double> percentages;
-  late List<Transaction> transactions;
   late double max;
   late TextEditingController expense;
   late TextEditingController price;
@@ -46,6 +48,14 @@ class MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     initializeVariables();
+    _loadTransactions();    
+  }
+
+  Future<void> _loadTransactions() async {
+    List<TransactionModel> transactions = await DatabaseManager.instance.getTransactions();
+    setState(() {
+      this.transactions = transactions;
+    });
   }
 
   void initializeVariables() {
@@ -59,19 +69,62 @@ class MyHomePageState extends State<MyHomePage> {
     selectedDate = DateTime.now();
   }
 
-  void addTransaction() {
-    setState(() {
-      heights[selectedDate.weekday - 1] += double.parse(price.text);
-      calculatePercentages();
-      transactions.add(Transaction(
-          transactions.length, price.text, expense.text, delete, selectedDate));
-    });
-  }
+  void addTransaction() async {
+  await DatabaseManager.instance.insertTransaction(TransactionModel(
+    id: transactions.length,
+    price: double.parse(price.text),
+    title: expense.text,
+    date: selectedDate,
+  ));
+  setState(() {
+    heights[selectedDate.weekday - 1] += double.parse(price.text);
+    calculatePercentages();
+    // Replace Transaction with TransactionModel
+    transactions.add(TransactionModel(
+      id: transactions.length,
+      price: double.parse(price.text),
+      title: expense.text,
+      date: selectedDate,
+    ));
+  });
+  // Clear text controllers after adding transaction
+  expense.clear();
+  price.clear();
+}
 
-  void delete(int id) {
+  void delete(int id) async {
+  bool confirmDelete = await showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text('Confirmation'),
+        content: Text('Are you sure you want to delete this transaction?'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(true); // Return true if confirmed
+            },
+            child: Text('Yes'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(false); // Return false if canceled
+            },
+            child: Text('No'),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (confirmDelete == true) {
+    // Proceed with deletion
+    await DatabaseManager.instance.deleteTransaction(id);
+
     setState(() {
-      Transaction a = transactions.firstWhere((element) => element.id == id);
-      heights[a.date.weekday - 1] -= double.parse(a.price);
+      // Update to remove TransactionModel
+      TransactionModel a = transactions.firstWhere((element) => element.id == id);
+      heights[a.date.weekday - 1] -= a.price;
       if (heights[a.date.weekday - 1] == 0) {
         percentages[a.date.weekday - 1] = 10;
       }
@@ -79,6 +132,9 @@ class MyHomePageState extends State<MyHomePage> {
       calculatePercentages();
     });
   }
+}
+
+
 
   void calculatePercentages() {
     max = heights.reduce((value, element) => value > element ? value : element);
@@ -126,7 +182,7 @@ class MyHomePageState extends State<MyHomePage> {
   }
 
 Widget _buildChart() {
-  double totalExpense = transactions.fold(0, (sum, transaction) => sum + double.parse(transaction.price));
+  double totalExpense = transactions.fold(0, (sum, transaction) => sum + (transaction.price));
 
   // Find the earliest and latest transaction dates
   DateTime earliestDate = findEarliestDate();
@@ -236,7 +292,7 @@ Widget _buildChart() {
 DateTime findEarliestDate() {
   DateTime earliestDate = DateTime.now();
 
-  for (Transaction transaction in transactions) {
+  for (TransactionModel transaction in transactions) {
     if (transaction.date.isBefore(earliestDate)) {
       earliestDate = transaction.date;
     }
@@ -248,7 +304,7 @@ DateTime findEarliestDate() {
 DateTime findLatestDate() {
   DateTime latestDate = DateTime.now();
 
-  for (Transaction transaction in transactions) {
+  for (TransactionModel transaction in transactions) {
     if (transaction.date.isAfter(latestDate)) {
       latestDate = transaction.date;
     }
@@ -256,6 +312,7 @@ DateTime findLatestDate() {
 
   return latestDate;
 }
+
   String findHighestExpenseDay() {
     double highestExpense = 0;
     String highestExpenseDay = "";
@@ -288,8 +345,14 @@ DateTime findLatestDate() {
             child: ListView.builder(
               itemCount: transactions.length,
               itemBuilder: (context, index) {
-                return transactions[index];
-              },
+              return Transaction(
+                transactions[index].id,
+                transactions[index].price.toString(),
+                transactions[index].title,
+                delete,
+                transactions[index].date,
+              );
+            },
             ),
           )
         ],
@@ -349,6 +412,9 @@ DateTime findLatestDate() {
                       }
                       return null;
                     },
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'^[a-zA-Z]+$')),
+                    ],
                   ),
                   TextFormField(
                     controller: price,
