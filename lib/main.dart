@@ -48,19 +48,21 @@ class MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     initializeVariables();
-    _loadTransactions();    
+    _loadTransactions();
   }
 
   Future<void> _loadTransactions() async {
-    List<TransactionModel> transactions = await DatabaseManager.instance.getTransactions();
+    List<TransactionModel> transactions =
+        await DatabaseManager.instance.getTransactions();
     setState(() {
       this.transactions = transactions;
     });
   }
 
   void initializeVariables() {
-    heights = List.filled(7, 0);
-    percentages = List.filled(7, 10);
+    heights = List.filled(31, 0); // Initialize heights with 31 days
+    percentages = List.filled(
+        31, 10); // Initialize percentages with 31 days, defaulting to 10%
     transactions = [];
     max = 0;
     expense = TextEditingController(text: "");
@@ -70,71 +72,73 @@ class MyHomePageState extends State<MyHomePage> {
   }
 
   void addTransaction() async {
-  await DatabaseManager.instance.insertTransaction(TransactionModel(
-    id: transactions.length,
-    price: double.parse(price.text),
-    title: expense.text,
-    date: selectedDate,
-  ));
-  setState(() {
-    heights[selectedDate.weekday - 1] += double.parse(price.text);
-    calculatePercentages();
-    // Replace Transaction with TransactionModel
-    transactions.add(TransactionModel(
+    await DatabaseManager.instance.insertTransaction(TransactionModel(
       id: transactions.length,
       price: double.parse(price.text),
       title: expense.text,
       date: selectedDate,
     ));
-  });
-  // Clear text controllers after adding transaction
-  expense.clear();
-  price.clear();
-}
-
-  void delete(int id) async {
-  bool confirmDelete = await showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: Text('Confirmation'),
-        content: Text('Are you sure you want to delete this transaction?'),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(true); // Return true if confirmed
-            },
-            child: Text('Yes'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(false); // Return false if canceled
-            },
-            child: Text('No'),
-          ),
-        ],
-      );
-    },
-  );
-
-  if (confirmDelete == true) {
-    // Proceed with deletion
-    await DatabaseManager.instance.deleteTransaction(id);
 
     setState(() {
-      // Update to remove TransactionModel
-      TransactionModel a = transactions.firstWhere((element) => element.id == id);
-      heights[a.date.weekday - 1] -= a.price;
-      if (heights[a.date.weekday - 1] == 0) {
-        percentages[a.date.weekday - 1] = 10;
-      }
-      transactions.remove(a);
-      calculatePercentages();
+      int day = selectedDate.day; // Get the day of the transaction
+      heights[day - 1] += double.parse(price.text); // Update heights list
+      calculatePercentages(); // Recalculate percentages
+      // Replace Transaction with TransactionModel
+      transactions.add(TransactionModel(
+        id: transactions.length,
+        price: double.parse(price.text),
+        title: expense.text,
+        date: selectedDate,
+      ));
     });
+    // Clear text controllers after adding transaction
+    expense.clear();
+    price.clear();
   }
-}
 
+  void delete(int id) async {
+    bool confirmDelete = await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Confirmation'),
+          content: Text('Are you sure you want to delete this transaction?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(true); // Return true if confirmed
+              },
+              child: Text('Yes'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(false); // Return false if canceled
+              },
+              child: Text('No'),
+            ),
+          ],
+        );
+      },
+    );
 
+    if (confirmDelete == true) {
+      // Proceed with deletion
+      await DatabaseManager.instance.deleteTransaction(id);
+
+      setState(() {
+        // Update to remove TransactionModel
+        TransactionModel a =
+            transactions.firstWhere((element) => element.id == id);
+        int day = a.date.day; // Get the day of the transaction
+        heights[day - 1] -= a.price; // Update heights list
+        if (heights[day - 1] == 0) {
+          percentages[day - 1] = 10;
+        }
+        transactions.remove(a);
+        calculatePercentages();
+      });
+    }
+  }
 
   void calculatePercentages() {
     max = heights.reduce((value, element) => value > element ? value : element);
@@ -181,137 +185,154 @@ class MyHomePageState extends State<MyHomePage> {
     );
   }
 
-Widget _buildChart() {
-  double totalExpense = transactions.fold(0, (sum, transaction) => sum + (transaction.price));
+  Widget _buildChart() {
+    double totalExpense =
+        transactions.fold(0, (sum, transaction) => sum + (transaction.price));
 
-  // Find the earliest and latest transaction dates
-  DateTime earliestDate = findEarliestDate();
-  DateTime latestDate = findLatestDate();
+    // Find the earliest and latest transaction dates
+    DateTime earliestDate = findEarliestDate();
+    DateTime latestDate = findLatestDate();
 
-  // Format dates
-  String startDateString = "${earliestDate.day}/${earliestDate.month}/${earliestDate.year}";
-  String endDateString = "${latestDate.day}/${latestDate.month}/${latestDate.year}";
+    // Format dates
+    String startDateString =
+        "${earliestDate.day}/${earliestDate.month}/${earliestDate.year}";
+    String endDateString =
+        "${latestDate.day}/${latestDate.month}/${latestDate.year}";
 
-  // Find the day with the highest expense
-  String highestExpenseDay = findHighestExpenseDay();
+    // Find the day with the highest expense
+    String highestExpenseDay = findHighestExpenseDay();
 
-  return Column(
-    children: [
-      Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Text(
-          '$startDateString - $endDateString', // Display the date range
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue, // Optionally, change the color to highlight
+    // Calculate the number of days in the current month
+    int daysInMonth = DateTime(
+      current.year,
+      current.month + 1,
+      0,
+    ).day;
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(
+            '$startDateString - $endDateString', // Display the date range
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.blue, // Optionally, change the color to highlight
+            ),
           ),
         ),
-      ),
-      Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'Total Expense: ',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                'Total Expense: ',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            Text(
-              '₹${totalExpense.toStringAsFixed(2)}', // Display total expense with ₹ symbol
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.green, // Optionally, change the color to indicate currency
+              Text(
+                '₹${totalExpense.toStringAsFixed(2)}', // Display total expense with ₹ symbol
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors
+                      .green, // Optionally, change the color to indicate currency
+                ),
               ),
-            ),
-          ],
-        ),
-      ),
-      Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Text(
-          'Highest Expense: $highestExpenseDay', // Display the highest expense day
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.red, // Optionally, change the color to highlight
+            ],
           ),
         ),
-      ),
-      Card(
-        child: SizedBox(
-          width: double.maxFinite,
-          height: 200,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 40),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                for (int i = 0; i < 7; i++)
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Container(
-                        height: percentages[i],
-                        width: 50,
-                        decoration: const BoxDecoration(
-                          borderRadius: BorderRadiusDirectional.all(Radius.elliptical(20, 20)),
-                          gradient: LinearGradient(
-                            begin: Alignment.bottomCenter,
-                            end: Alignment.topCenter,
-                            colors: [
-                              Color.fromARGB(255, 58, 100, 172),
-                              Color.fromARGB(255, 96, 169, 209)
-                            ],
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(
+            'Highest Expense: $highestExpenseDay', // Display the highest expense day
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.red, // Optionally, change the color to highlight
+            ),
+          ),
+        ),
+        Card(
+          child: SizedBox(
+            width: double.maxFinite,
+            height: 200,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (int i = 0; i < daysInMonth; i++)
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Container(
+                            height: percentages[
+                                i], // Use i as index instead of loop index
+                            width: 50,
+                            decoration: const BoxDecoration(
+                              borderRadius: BorderRadiusDirectional.all(
+                                  Radius.elliptical(20, 20)),
+                              gradient: LinearGradient(
+                                begin: Alignment.bottomCenter,
+                                end: Alignment.topCenter,
+                                colors: [
+                                  Color.fromARGB(255, 58, 100, 172),
+                                  Color.fromARGB(255, 96, 169, 209)
+                                ],
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                heights[i].toString(),
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            ),
                           ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            heights[i].toString(),
-                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                          ),
-                        ),
+                          Text('${i + 1}')
+                        ],
                       ),
-                      Text(weekdays[i])
-                    ],
-                  ),
-              ],
+                  ],
+                ),
+              ),
             ),
           ),
         ),
-      ),
-    ],
-  );
-}
-
-
-DateTime findEarliestDate() {
-  DateTime earliestDate = DateTime.now();
-
-  for (TransactionModel transaction in transactions) {
-    if (transaction.date.isBefore(earliestDate)) {
-      earliestDate = transaction.date;
-    }
+      ],
+    );
   }
 
-  return earliestDate;
-}
+  DateTime findEarliestDate() {
+    DateTime earliestDate = DateTime.now();
 
-DateTime findLatestDate() {
-  DateTime latestDate = DateTime.now();
-
-  for (TransactionModel transaction in transactions) {
-    if (transaction.date.isAfter(latestDate)) {
-      latestDate = transaction.date;
+    for (TransactionModel transaction in transactions) {
+      if (transaction.date.isBefore(earliestDate)) {
+        earliestDate = transaction.date;
+      }
     }
+
+    return earliestDate;
   }
 
-  return latestDate;
-}
+  DateTime findLatestDate() {
+    DateTime latestDate = DateTime.now();
+
+    for (TransactionModel transaction in transactions) {
+      if (transaction.date.isAfter(latestDate)) {
+        latestDate = transaction.date;
+      }
+    }
+
+    return latestDate;
+  }
 
   String findHighestExpenseDay() {
     double highestExpense = 0;
@@ -326,7 +347,6 @@ DateTime findLatestDate() {
 
     return highestExpenseDay;
   }
-
 
   Widget _buildTransactionsList() {
     return Card(
@@ -345,14 +365,14 @@ DateTime findLatestDate() {
             child: ListView.builder(
               itemCount: transactions.length,
               itemBuilder: (context, index) {
-              return Transaction(
-                transactions[index].id,
-                transactions[index].price.toString(),
-                transactions[index].title,
-                delete,
-                transactions[index].date,
-              );
-            },
+                return Transaction(
+                  transactions[index].id,
+                  transactions[index].price.toString(),
+                  transactions[index].title,
+                  delete,
+                  transactions[index].date,
+                );
+              },
             ),
           )
         ],
